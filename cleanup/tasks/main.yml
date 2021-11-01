@@ -17,20 +17,10 @@
     autoclean: yes
     autoremove: yes
   loop: "{{ packages }}"
-
-#- name: delete packages one more time :)
-#  command: apt-get remove "{{ item }}" -y
-#  loop:
-#    - "{{ packages }}"
  
 - name: Uninstall programs
   command: apt-get remove -y "{{ item }}"
   loop: "{{ packages }}"
-  
-#- name: uninstall Jenkins repo_key
-#  apt_key:
-#    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
-#    state: absent
 
 - name: remove Jenkins repository
   apt_repository:
