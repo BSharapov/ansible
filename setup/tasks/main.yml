@@ -119,25 +119,24 @@
 
 ################### Nginx configuration #########################
    
-- name: Delete link
+- name: Remove proxy.conf
   file:
-   path: "/etc/nginx/sites-enabled/default"
-   state: absent
+    path: /etc/nginx/sites-enabled/default
+    state: absent 
    
 - name: Copy proxy.conf
   copy:
     src: proxy.conf
     dest: /etc/nginx/sites-enabled/proxy.conf
-    owner: root
-    group: root
+    #  owner: root
+    #  group: root
     mode: '0644'
-    backup: yes
+    # backup: yes
     
 - name: nginx restart
-  systemd:
+  service:
     name: nginx
     state: restarted
-    enabled: yes
   retries: 5
     
 ####################################################################
