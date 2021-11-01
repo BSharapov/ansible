@@ -1,0 +1,18 @@
+---
+# defaults file for setup
+sysctl:
+  vm.min_free_kbytes: 83886
+  fs.file-max: 2097152
+  net.core.somaxconn: 65000
+  vm.swappiness: 0
+  vm.nr_hugepages: 0
+
+packages: 
+  - openjdk-11-jdk
+  - jenkins
+  - nginx
+  
+plugins:
+  - github
+  - role-strategy
+  - nodejs

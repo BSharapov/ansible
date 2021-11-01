@@ -1,0 +1,143 @@
+---
+# tasks file for setup
+##################### Sysctl tuning part######################
+
+- name: configure sysctl
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+  with_dict: "{{ sysctl }}"
+  
+- name: Disable swap (1/2)
+  shell:
+    swapoff -a   
+    
+- name: Disable SWAP in fstab (2/2)
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+
+- name: disable THP
+  shell:
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled
+##############################################################
+
+################ J&J installing and configuring ##############
+
+- name: install Jenkins repo_key
+  apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    state: present
+
+- name: add Jenkins repository
+  apt_repository:
+    repo: deb https://pkg.jenkins.io/debian-stable binary/
+    state: present
+
+- name: install packets
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    state: present
+  loop: "{{ packages }}"
+  register: installed
+  until: installed is not failed
+  retries: 5
+    
+- name: setup custom port 8081 for Jenkins
+  lineinfile:
+    dest: /etc/default/jenkins
+    regexp: '^HTTP_PORT='
+    line: 'HTTP_PORT="8081"'
+    
+- name: jenkins restart
+  systemd:
+    name: jenkins
+    state: restarted
+    enabled: yes
+
+- name: Wait for Jenkins to start up before proceeding.
+  uri:
+    url: "http://localhost:8081/cli/"
+    method: GET
+    return_content: "yes"
+    timeout: 5
+    body_format: raw
+    follow_redirects: "no"
+    status_code: 200,403
+  register: result
+  until: (result.status == 403 or result.status == 200) and (result.content.find("Please wait while") == -1)
+  retries: 10
+  delay: 5
+  changed_when: false
+  check_mode: false
+
+- name: read admin pwd
+  shell: cat /var/lib/jenkins/secrets/initialAdminPassword
+  register: adminpwd
+      
+- name: JENKINS-CTEDENTIALS | Create CRUMB authentication request
+  uri:
+    url: 'http://localhost:8081/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,":",//crumb)'
+    user: admin
+    password: '{{  adminpwd.stdout }}'
+    force_basic_auth: yes
+    return_content: yes
+  register: crumb
+
+- name: JENKINS-CTEDENTIALS | Add Jenkins administration account
+  uri:
+    method: POST
+    url: 'http://localhost:8081/securityRealm/createAccountByAdmin'
+    user: admin
+    password: '{{ adminpwd.stdout }}'
+    force_basic_auth: yes
+    follow_redirects: all
+    headers:
+      Jenkins-Crumb: '{{ crumb.content.split(":")[1] }}'
+      Cookie: '{{ crumb.set_cookie }}'
+    body: 'username=bsharapov&password1=Cvyatok&password2=Cvyatok&fullname=Boris&email=dummy@gmail.com'
+
+- name: Install plugin 
+  jenkins_plugin:
+    name: "{{ item }}"
+    url_username: admin
+    url_password: "{{ adminpwd.stdout }}"
+    url: http://localhost:8081 
+  loop: "{{ plugins }}"
+  register: pl_installed
+  until: pl_installed is not failed
+  retries: 5
+
+- name: jenkins restart
+  systemd:
+    name: jenkins
+    state: restarted
+    enabled: yes
+#################################################################
+
+################### Nginx configuration #########################
+   
+- name: Delete link
+  file:
+   path: "/etc/nginx/sites-enabled/default"
+   state: absent
+   
+- name: Copy proxy.conf
+  copy:
+    src: proxy.conf
+    dest: /etc/nginx/sites-enabled/proxy.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+    
+- name: nginx restart
+  systemd:
+    name: nginx
+    state: restarted
+    enabled: yes
+  retries: 5
+    
+####################################################################

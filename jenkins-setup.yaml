@@ -1,0 +1,7 @@
+---
+- hosts: VM
+  become: yes
+  tags: [setup]
+
+  roles:
+    - role: setup

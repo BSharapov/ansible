@@ -1,0 +1,6 @@
+---
+- hosts: VM
+  become: yes
+  tags: [cleanup]
+  roles: 
+   - cleanup

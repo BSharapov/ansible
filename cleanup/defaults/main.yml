@@ -1,0 +1,6 @@
+---
+# defaults file for cleanup
+packages:
+  - jenkins
+  - openjdk-11-jdk
+  - nginx

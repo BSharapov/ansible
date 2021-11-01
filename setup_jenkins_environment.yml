@@ -1,0 +1,5 @@
+---
+- import_playbook: jenkins-setup.yaml
+  tags: setup
+- import_playbook: jenkins-cleanup.yaml
+  tags: cleanup
